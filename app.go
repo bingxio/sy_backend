@@ -6,16 +6,22 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"shm/api"
-	"shm/db"
+	"sy/api"
+	"sy/config"
+	"sy/db"
 	"syscall"
 	"time"
 )
 
 func init() {
+	if err := config.LoadConf(); err != nil {
+		log.Fatal(err)
+	}
 	if err := db.ConnectDB(); err != nil {
 		log.Fatal(err)
 	}
+	var conn = db.Conn
+	conn.Exec("create table menu(id integer primary key, title text)")
 }
 
 func cleanup() {
@@ -38,7 +44,7 @@ func main() {
 	initApi()
 
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         config.C.ApiPort,
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
 	}
@@ -55,7 +61,7 @@ func main() {
 		}
 		close(quit)
 	}()
-	log.Println("http server started on \033[32m:8080\033[0m")
+	log.Printf("http server started on \033[32m%s\033[0m\n", config.C.ApiPort)
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatal(err)

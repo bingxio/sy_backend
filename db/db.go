@@ -2,26 +2,15 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
+	"sy/config"
 
-	_ "github.com/go-sql-driver/mysql"
-)
-
-var (
-	auth = "root:qwer1234"
-
-	url = "127.0.0.1:3306"
-	db  = "shm"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var Conn *sql.DB
 
 func ConnectDB() error {
-	db, err := sql.Open(
-		"mysql",
-		fmt.Sprintf(
-			"%s@tcp(%s)/%s?loc=Local&parseTime=true", auth, url, db),
-	)
+	db, err := sql.Open("sqlite3", config.C.DbPath)
 	if err != nil {
 		return err
 	}

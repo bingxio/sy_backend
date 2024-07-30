@@ -14,7 +14,6 @@ type Config struct {
 	Port         int
 	DbPath       string `env:"db_path"`
 	ResourcePath string `env:"resource_path"`
-	Auth         string
 }
 
 var Conf = new(Config)

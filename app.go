@@ -36,14 +36,14 @@ func main() {
 		w.Write([]byte(now))
 	})
 
-	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList)
-	mux.HandleFunc("/menu/random", api.GetRandomMenu)
+	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList) // 获取菜列表
+	mux.HandleFunc("/menu/random", api.GetRandomMenu)            // 随机一个菜（类型筛选）
 
-	mux.HandleFunc("/menu", api.PostMenu)
-	mux.HandleFunc("/menu/{id}", api.DeleteMenu)
+	mux.HandleFunc("/menu", api.PostMenu)        // 增菜
+	mux.HandleFunc("/menu/{id}", api.DeleteMenu) // 删菜
 
-	mux.HandleFunc("/menu/image/{id}", api.MenuImage)
-	mux.HandleFunc("/menu/{id}/{field}", api.PatchMenu)
+	mux.HandleFunc("/menu/image/{id}", api.MenuImage)   // 示例图片的增删
+	mux.HandleFunc("/menu/{id}/{field}", api.PatchMenu) // 更新菜字段
 
 	srv := &http.Server{
 		Addr:         config.Conf.ApiPort,

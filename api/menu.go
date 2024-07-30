@@ -26,9 +26,9 @@ func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	filter := query.Get("type")
 
-	QL := "SELECT * FROM menu ORDER BY RANDOM() LIMIT 1"
+	QL := "SELECT * FROM menu %s ORDER BY RANDOM() LIMIT 1"
 	if filter != "" {
-		QL += "WHERE type=?"
+		QL = fmt.Sprintf(QL, "WHERE type=?")
 	}
 	row := db.Conn.QueryRow(QL, filter)
 	if err := row.Err(); err != nil {
@@ -38,7 +38,7 @@ func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
 	var ingre, image, create, update string
 
 	err := row.Scan(
-		&menu.Id, &menu.Title, &ingre, &menu.CookMethod,
+		&menu.Id, &menu.Title, &menu.Type, &ingre, &menu.CookMethod,
 		&image, &menu.Budget, &create, &update,
 	)
 	if err != nil {
@@ -69,7 +69,7 @@ func GetMenuList(w http.ResponseWriter, r *http.Request) {
 		var ingre, image, create, update string
 
 		err := rows.Scan(
-			&menu.Id, &menu.Type, &menu.Title, &ingre, &menu.CookMethod,
+			&menu.Id, &menu.Title, &menu.Type, &ingre, &menu.CookMethod,
 			&image, &menu.Budget, &create, &update,
 		)
 		if err != nil {

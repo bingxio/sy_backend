@@ -2,15 +2,15 @@ package db
 
 import (
 	"database/sql"
-	"sy/config"
+	"sy_backend/config"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var Conn *sql.DB
 
-func ConnectDB() error {
-	db, err := sql.Open("sqlite3", config.C.DbPath)
+func Open() error {
+	db, err := sql.Open("sqlite3", config.Conf.DbPath)
 	if err != nil {
 		return err
 	}
@@ -21,6 +21,6 @@ func ConnectDB() error {
 	return nil
 }
 
-func CloseDB() error {
+func Close() error {
 	return Conn.Close()
 }

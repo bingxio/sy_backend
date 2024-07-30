@@ -1,7 +1,12 @@
 package api
 
 import (
+	"fmt"
+	"log"
 	"net/http"
+	"strconv"
+	"strings"
+	"sy_backend/db"
 	"time"
 )
 
@@ -17,9 +22,184 @@ type MenuModel struct {
 }
 
 func GetMenuList(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("GET /menu/list/0/10"))
+	page, _ := strconv.Atoi(r.PathValue("page"))
+	limit, _ := strconv.Atoi(r.PathValue("limit"))
+
+	rows, err := db.Conn.Query(
+		"SELECT * FROM menu LIMIT ? OFFSET ?", limit, limit*page)
+	if err != nil {
+		log.Println(err)
+	}
+	var menuList []MenuModel
+
+	for rows.Next() {
+		var menu MenuModel
+		var ingre, image, create, update string
+
+		err := rows.Scan(
+			&menu.Id, &menu.Title, &ingre, &menu.CookMethod,
+			&image, &menu.Budget, &create, &update,
+		)
+		if err != nil {
+			log.Println(err)
+		}
+		menu.Ingredients = strings.Split(ingre, ",")
+		menu.ImageList = strings.Split(image, ",")
+
+		menu.CreateAt, _ = time.Parse("2006-01-02 15:04:05", create)
+		menu.UpdateAt, _ = time.Parse("2006-01-02 15:04:05", update)
+
+		menuList = append(menuList, menu)
+	}
+	JSON(w, menuList)
 }
 
-func GetMenuInfo(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("GET /menu/info"))
+func commaSlice(s []string) string {
+	b := strings.Builder{}
+
+	for i := 0; i < len(s); i++ {
+		b.WriteString(s[i])
+
+		if i != len(s)-1 {
+			b.WriteByte(',')
+		}
+	}
+	return b.String()
+}
+
+func PostMenu(w http.ResponseWriter, r *http.Request) {
+	title := r.FormValue("title")
+	ingredients := r.FormValue("ingredients") // 食材
+	cookMethod := r.FormValue("cook_method")  // 烹饪方法
+	budget := r.FormValue("budget")
+
+	files := r.MultipartForm.File["image"]
+	image := []string{}
+
+	for _, v := range files {
+		image = append(image, NewResource(menu, v))
+	}
+	imageList := strings.Builder{}
+
+	for i := 0; i < len(image); i++ {
+		imageList.WriteString(image[i])
+
+		if i != len(image)-1 {
+			imageList.WriteByte(',')
+		}
+	}
+	_, err := db.Conn.Exec(
+		`INSERT INTO menu(
+			title, ingredients, cook_method, image_list, budget)
+		VALUES(?, ?, ?, ?, ?)`,
+		title,
+		ingredients,
+		cookMethod,
+		imageList.String(),
+		budget,
+	)
+	if err != nil {
+		log.Println(err)
+	}
+	JSON(w, "OK")
+}
+
+func DeleteMenu(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
+
+	var imageList string
+	_ = row.Scan(&imageList)
+
+	for _, v := range strings.Split(imageList, ",") {
+		DeleteResource(v)
+	}
+	_, err := db.Conn.Exec("DELETE FROM menu WHERE _id=?", id)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func pushMenuImage(r *http.Request) {
+	id := r.PathValue("id")
+	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
+	var imageList string
+
+	_ = row.Scan(&imageList)
+	_, header, err := r.FormFile("image")
+
+	if err != nil {
+		log.Println(err)
+	}
+	path := NewResource(menu, header)
+
+	slice := strings.Split(imageList, ",")
+	slice = append(slice, path)
+
+	_, err = db.Conn.Exec(
+		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func popMenuImage(r *http.Request) {
+	id := r.PathValue("id")
+	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
+
+	var imageList string
+	_ = row.Scan(&imageList)
+
+	slice := strings.Split(imageList, ",")
+	back := len(slice) - 1
+
+	DeleteResource(slice[back])
+	slice = slice[:back]
+
+	_, err := db.Conn.Exec(
+		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+// 对示例图片的操作
+func MenuImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		pushMenuImage(r) // 添加一张
+	}
+	if r.Method == "DELETE" {
+		popMenuImage(r) // 删一张
+	}
+}
+
+func PatchMenu(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	field := r.PathValue("field")
+
+	var value string
+
+	switch field {
+	case "title":
+		value = r.FormValue("title")
+	case "ingredients":
+		value = r.FormValue("ingredients")
+	case "cook-method":
+		value = r.FormValue("cook_method")
+	case "budget":
+		value = r.FormValue("budget")
+	}
+	if field == "cook-method" {
+		field = "cook_method"
+	}
+	sql := fmt.Sprintf(
+		"UPDATE menu SET %s='%s', update_at='%s' WHERE _id=?",
+		field,
+		value,
+		time.Now().Format("2006-01-02 15:04:05"),
+	)
+	_, err := db.Conn.Exec(sql, id)
+	if err != nil {
+		log.Println(err)
+	}
 }

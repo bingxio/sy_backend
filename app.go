@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sy/api"
-	"sy/config"
-	"sy/db"
+	"sy_backend/api"
+	"sy_backend/config"
+	"sy_backend/db"
 	"syscall"
 	"time"
 )
@@ -17,36 +17,37 @@ func init() {
 	if err := config.LoadConf(); err != nil {
 		log.Fatal(err)
 	}
-	if err := db.ConnectDB(); err != nil {
+	if err := db.Open(); err != nil {
 		log.Fatal(err)
 	}
-	var conn = db.Conn
-	conn.Exec("create table menu(id integer primary key, title text)")
 }
 
 func cleanup() {
-	if err := db.CloseDB(); err != nil {
+	if err := db.Close(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func initApi() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func main() {
+	mux := &http.ServeMux{}
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now().Format("2006/01/02 15:04:05")
 		w.Write([]byte(now))
 	})
 
-	http.HandleFunc("/menu/list/:page/:limit", api.GetMenuList)
-	http.HandleFunc("/menu/:id", api.GetMenuInfo)
-}
+	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList)
+	mux.HandleFunc("/menu", api.PostMenu)
+	mux.HandleFunc("/menu/{id}", api.DeleteMenu)
 
-func main() {
-	initApi()
+	mux.HandleFunc("/menu/image/{id}", api.MenuImage)
+	mux.HandleFunc("/menu/{id}/{field}", api.PatchMenu)
 
 	srv := &http.Server{
-		Addr:         config.C.ApiPort,
+		Addr:         config.Conf.ApiPort,
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
+		Handler:      mux,
 	}
 	quit := make(chan struct{})
 
@@ -61,7 +62,7 @@ func main() {
 		}
 		close(quit)
 	}()
-	log.Printf("http server started on \033[32m%s\033[0m\n", config.C.ApiPort)
+	log.Printf("http server started on \033[32m%s\033[0m\n", config.Conf.ApiPort)
 
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatal(err)

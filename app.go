@@ -37,6 +37,8 @@ func main() {
 	})
 
 	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList)
+	mux.HandleFunc("/menu/random", api.GetRandomMenu)
+
 	mux.HandleFunc("/menu", api.PostMenu)
 	mux.HandleFunc("/menu/{id}", api.DeleteMenu)
 

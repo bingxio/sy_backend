@@ -13,12 +13,44 @@ import (
 type MenuModel struct {
 	Id          uint      `json:"_id"`
 	Title       string    `json:"title"`       // 名称
+	Type        string    `json:"type"`        // 荤、素、汤
 	Ingredients []string  `json:"ingredients"` // 食材
 	CookMethod  string    `json:"cook_method"` // 烹饪方法
 	ImageList   []string  `json:"image_list"`  // 样例图
 	Budget      float32   `json:"budget"`      // 预算
 	CreateAt    time.Time `json:"create_at"`
 	UpdateAt    time.Time `json:"update_at"`
+}
+
+func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	filter := query.Get("type")
+
+	QL := "SELECT * FROM menu ORDER BY RANDOM() LIMIT 1"
+	if filter != "" {
+		QL += "WHERE type=?"
+	}
+	row := db.Conn.QueryRow(QL, filter)
+	if err := row.Err(); err != nil {
+		log.Println(err)
+	}
+	var menu MenuModel
+	var ingre, image, create, update string
+
+	err := row.Scan(
+		&menu.Id, &menu.Title, &ingre, &menu.CookMethod,
+		&image, &menu.Budget, &create, &update,
+	)
+	if err != nil {
+		log.Println(err)
+	}
+	menu.Ingredients = strings.Split(ingre, ",")
+	menu.ImageList = strings.Split(image, ",")
+
+	menu.CreateAt, _ = time.Parse("2006-01-02 15:04:05", create)
+	menu.UpdateAt, _ = time.Parse("2006-01-02 15:04:05", update)
+
+	JSON(w, menu)
 }
 
 func GetMenuList(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +69,7 @@ func GetMenuList(w http.ResponseWriter, r *http.Request) {
 		var ingre, image, create, update string
 
 		err := rows.Scan(
-			&menu.Id, &menu.Title, &ingre, &menu.CookMethod,
+			&menu.Id, &menu.Type, &menu.Title, &ingre, &menu.CookMethod,
 			&image, &menu.Budget, &create, &update,
 		)
 		if err != nil {
@@ -69,6 +101,7 @@ func commaSlice(s []string) string {
 
 func PostMenu(w http.ResponseWriter, r *http.Request) {
 	title := r.FormValue("title")
+	tp := r.FormValue("type")
 	ingredients := r.FormValue("ingredients") // 食材
 	cookMethod := r.FormValue("cook_method")  // 烹饪方法
 	budget := r.FormValue("budget")
@@ -90,9 +123,10 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err := db.Conn.Exec(
 		`INSERT INTO menu(
-			title, ingredients, cook_method, image_list, budget)
-		VALUES(?, ?, ?, ?, ?)`,
+			title, type, ingredients, cook_method, image_list, budget)
+		VALUES(?, ?, ?, ?, ?, ?)`,
 		title,
+		tp,
 		ingredients,
 		cookMethod,
 		imageList.String(),
@@ -188,6 +222,8 @@ func PatchMenu(w http.ResponseWriter, r *http.Request) {
 		value = r.FormValue("cook_method")
 	case "budget":
 		value = r.FormValue("budget")
+	case "type":
+		value = r.FormValue("type")
 	}
 	if field == "cook-method" {
 		field = "cook_method"

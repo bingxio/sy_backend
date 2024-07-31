@@ -9,6 +9,7 @@ import (
 	"sy_backend/api"
 	"sy_backend/config"
 	"sy_backend/db"
+	"sy_backend/middleware"
 	"syscall"
 	"time"
 )
@@ -33,9 +34,16 @@ func main() {
 
 	fs := http.FileServer(http.Dir("resource/menu"))
 	mux.Handle("/resource/menu/", http.StripPrefix("/resource/menu", fs))
+	// mux.HandleFunc(
+	// 	"/resource/menu/",
+	// 	middleware.Cors(func(w http.ResponseWriter, r *http.Request) {
+	// 		http.StripPrefix("/resource/menu", fs).ServeHTTP(w, r)
+	// 	}),
+	// )
 
-	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList) // 获取菜列表
-	mux.HandleFunc("/menu/random", api.GetRandomMenu)            // 随机一个菜（类型筛选）
+	// 获取菜列表
+	mux.HandleFunc("/menu/list/{page}/{limit}", middleware.Cors(api.GetMenuList))
+	mux.HandleFunc("/menu/random", api.GetRandomMenu) // 随机一个菜（类型筛选）
 
 	mux.HandleFunc("/menu", api.PostMenu)        // 增菜
 	mux.HandleFunc("/menu/{id}", api.DeleteMenu) // 删菜

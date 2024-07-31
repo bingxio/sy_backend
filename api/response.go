@@ -18,7 +18,7 @@ func ServerError(w http.ResponseWriter, err error) {
 //		w.WriteHeader(http.StatusNotFound)
 //	}
 func JSON(w http.ResponseWriter, model any) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 
 	encoder := json.NewEncoder(w)
 	encoder.Encode(map[string]any{"data": model})

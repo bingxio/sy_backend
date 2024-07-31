@@ -8,10 +8,12 @@ import (
 	"strings"
 	"sy_backend/db"
 	"time"
+
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 type MenuModel struct {
-	Id          uint      `json:"_id"`
+	Id          string    `json:"_id"`
 	Title       string    `json:"title"`       // 名称
 	Type        string    `json:"type"`        // 荤、素、汤
 	Ingredients []string  `json:"ingredients"` // 食材
@@ -121,10 +123,13 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 			imageList.WriteByte(',')
 		}
 	}
+	nano, _ := gonanoid.New()
+
 	_, err := db.Conn.Exec(
 		`INSERT INTO menu(
-			title, type, ingredients, cook_method, image_list, budget)
-		VALUES(?, ?, ?, ?, ?, ?)`,
+			_id, title, type, ingredients, cook_method, image_list, budget)
+		VALUES(?, ?, ?, ?, ?, ?, ?)`,
+		nano,
 		title,
 		tp,
 		ingredients,
@@ -166,8 +171,11 @@ func pushMenuImage(r *http.Request) {
 		log.Println(err)
 	}
 	path := NewResource(menu, header)
+	var slice []string
 
-	slice := strings.Split(imageList, ",")
+	if len(imageList) != 0 {
+		slice = strings.Split(imageList, ",")
+	}
 	slice = append(slice, path)
 
 	_, err = db.Conn.Exec(

@@ -33,7 +33,7 @@ func makeTable() {
 
 	if !exists {
 		_, err = Conn.Exec(`CREATE TABLE "menu" (
-	"_id"	INTEGER NOT NULL UNIQUE,
+	"_id"	TEXT NOT NULL UNIQUE,
 	"title"	TEXT,
 	"type"	TEXT,
 	"ingredients"	TEXT,
@@ -42,7 +42,7 @@ func makeTable() {
 	"budget"	REAL,
 	"create_at"	TEXT DEFAULT (datetime('now', 'localtime')),
 	"update_at"	TEXT DEFAULT (datetime('now', 'localtime')),
-	PRIMARY KEY("_id" AUTOINCREMENT)
+	PRIMARY KEY("_id")
 );`)
 		if err != nil {
 			log.Println(err)

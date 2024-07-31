@@ -29,12 +29,10 @@ func cleanup() {
 }
 
 func main() {
-	mux := &http.ServeMux{}
+	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		now := time.Now().Format("2006/01/02 15:04:05")
-		w.Write([]byte(now))
-	})
+	fs := http.FileServer(http.Dir("resource/menu"))
+	mux.Handle("/resource/menu/", http.StripPrefix("/resource/menu", fs))
 
 	mux.HandleFunc("/menu/list/{page}/{limit}", api.GetMenuList) // 获取菜列表
 	mux.HandleFunc("/menu/random", api.GetRandomMenu)            // 随机一个菜（类型筛选）

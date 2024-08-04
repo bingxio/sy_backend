@@ -36,6 +36,7 @@ func makeTable() {
 	"_id"	TEXT NOT NULL UNIQUE,
 	"title"	TEXT,
 	"type"	TEXT,
+	"tag"   TEXT,
 	"ingredients"	TEXT,
 	"cook_method"	TEXT,
 	"image_list"	TEXT,

@@ -11,7 +11,6 @@ import (
 	"sy_backend/db"
 	"sy_backend/middleware"
 	"syscall"
-	"time"
 )
 
 func init() {
@@ -42,7 +41,7 @@ func main() {
 	// )
 
 	// 获取菜列表
-	mux.HandleFunc("/menu/list/{page}/{limit}", middleware.Cors(api.GetMenuList))
+	mux.HandleFunc("/menu/list", middleware.Cors(api.GetMenuList))
 	mux.HandleFunc("/menu/random", api.GetRandomMenu) // 随机一个菜（类型筛选）
 
 	mux.HandleFunc("/menu", api.PostMenu)        // 增菜
@@ -52,10 +51,8 @@ func main() {
 	mux.HandleFunc("/menu/{id}/{field}", api.PatchMenu) // 更新菜字段
 
 	srv := &http.Server{
-		Addr:         config.Conf.ApiPort,
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 5,
-		Handler:      mux,
+		Addr:    config.Conf.ApiPort,
+		Handler: mux,
 	}
 	quit := make(chan struct{})
 

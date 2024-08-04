@@ -14,8 +14,9 @@ import (
 
 type MenuModel struct {
 	Id          string    `json:"_id"`
-	Title       string    `json:"title"`       // 名称
-	Type        string    `json:"type"`        // 荤、素、汤
+	Title       string    `json:"title"` // 名称
+	Type        string    `json:"type"`  // 荤、素、汤
+	Tag         []string  `json:"tag"`
 	Ingredients []string  `json:"ingredients"` // 食材
 	CookMethod  string    `json:"cook_method"` // 烹饪方法
 	ImageList   []string  `json:"image_list"`  // 样例图
@@ -25,27 +26,24 @@ type MenuModel struct {
 }
 
 func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	filter := query.Get("type")
-
-	QL := "SELECT * FROM menu %s ORDER BY RANDOM() LIMIT 1"
-	if filter != "" {
-		QL = fmt.Sprintf(QL, "WHERE type=?")
-	}
-	row := db.Conn.QueryRow(QL, filter)
+	row := db.Conn.QueryRow("SELECT * FROM menu ORDER BY RANDOM() LIMIT 1")
 	if err := row.Err(); err != nil {
 		log.Println(err)
+		return
 	}
 	var menu MenuModel
-	var ingre, image, create, update string
+	var tag, ingre, image, create, update string
 
 	err := row.Scan(
-		&menu.Id, &menu.Title, &menu.Type, &ingre, &menu.CookMethod,
+		&menu.Id, &menu.Title, &menu.Type, &tag, &ingre, &menu.CookMethod,
 		&image, &menu.Budget, &create, &update,
 	)
 	if err != nil {
 		log.Println(err)
+		return
 	}
+	menu.Tag = strings.Split(tag, ",")
+
 	menu.Ingredients = strings.Split(ingre, ",")
 	menu.ImageList = strings.Split(image, ",")
 
@@ -56,27 +54,45 @@ func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetMenuList(w http.ResponseWriter, r *http.Request) {
-	page, _ := strconv.Atoi(r.PathValue("page"))
-	limit, _ := strconv.Atoi(r.PathValue("limit"))
+	query := r.URL.Query()
+	filter := query.Get("type")
 
-	rows, err := db.Conn.Query(
-		"SELECT * FROM menu LIMIT ? OFFSET ?", limit, limit*page)
+	page, _ := strconv.Atoi(query.Get("page"))
+	limit, _ := strconv.Atoi(query.Get("limit"))
+
+	b := strings.Builder{}
+	b.WriteString("SELECT * FROM menu ")
+
+	if filter != "" {
+		b.WriteString(fmt.Sprintf("WHERE type='%s' ", filter))
+	}
+	b.WriteString("LIMIT ? OFFSET ?")
+
+	rows, err := db.Conn.Query(b.String(), limit, limit*page)
 	if err != nil {
 		log.Println(err)
+		return
+	}
+	if err := rows.Err(); err != nil {
+		log.Println(err)
+		return
 	}
 	var menuList []MenuModel
 
 	for rows.Next() {
 		var menu MenuModel
-		var ingre, image, create, update string
+		var tag, ingre, image, create, update string
 
 		err := rows.Scan(
-			&menu.Id, &menu.Title, &menu.Type, &ingre, &menu.CookMethod,
+			&menu.Id, &menu.Title, &menu.Type, &tag, &ingre, &menu.CookMethod,
 			&image, &menu.Budget, &create, &update,
 		)
 		if err != nil {
 			log.Println(err)
+			return
 		}
+		menu.Tag = strings.Split(tag, ",")
+
 		menu.Ingredients = strings.Split(ingre, ",")
 		menu.ImageList = strings.Split(image, ",")
 
@@ -104,6 +120,7 @@ func commaSlice(s []string) string {
 func PostMenu(w http.ResponseWriter, r *http.Request) {
 	title := r.FormValue("title")
 	tp := r.FormValue("type")
+	tag := r.FormValue("tag")
 	ingredients := r.FormValue("ingredients") // 食材
 	cookMethod := r.FormValue("cook_method")  // 烹饪方法
 	budget := r.FormValue("budget")
@@ -127,11 +144,12 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 
 	_, err := db.Conn.Exec(
 		`INSERT INTO menu(
-			_id, title, type, ingredients, cook_method, image_list, budget)
-		VALUES(?, ?, ?, ?, ?, ?, ?)`,
+			_id, title, type, tag, ingredients, cook_method, image_list, budget)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
 		nano,
 		title,
 		tp,
+		tag,
 		ingredients,
 		cookMethod,
 		imageList.String(),
@@ -139,6 +157,7 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	JSON(w, "OK")
 }
@@ -156,6 +175,7 @@ func DeleteMenu(w http.ResponseWriter, r *http.Request) {
 	_, err := db.Conn.Exec("DELETE FROM menu WHERE _id=?", id)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 }
 
@@ -169,6 +189,7 @@ func pushMenuImage(r *http.Request) {
 
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	path := NewResource(menu, header)
 	var slice []string
@@ -182,6 +203,7 @@ func pushMenuImage(r *http.Request) {
 		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 }
 
@@ -189,6 +211,10 @@ func popMenuImage(r *http.Request) {
 	id := r.PathValue("id")
 	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
 
+	if err := row.Err(); err != nil {
+		log.Println(err)
+		return
+	}
 	var imageList string
 	_ = row.Scan(&imageList)
 
@@ -202,6 +228,7 @@ func popMenuImage(r *http.Request) {
 		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 }
 
@@ -232,6 +259,8 @@ func PatchMenu(w http.ResponseWriter, r *http.Request) {
 		value = r.FormValue("budget")
 	case "type":
 		value = r.FormValue("type")
+	case "tag":
+		value = r.FormValue("tag")
 	}
 	if field == "cook-method" {
 		field = "cook_method"
@@ -245,5 +274,6 @@ func PatchMenu(w http.ResponseWriter, r *http.Request) {
 	_, err := db.Conn.Exec(sql, id)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 }

@@ -19,38 +19,9 @@ type MenuModel struct {
 	Tag         []string  `json:"tag"`
 	Ingredients []string  `json:"ingredients"` // 食材
 	CookMethod  string    `json:"cook_method"` // 烹饪方法
-	ImageList   []string  `json:"image_list"`  // 样例图
+	ImagePath   string    `json:"image_path"`  // 样例图
 	Budget      float32   `json:"budget"`      // 预算
-	CreateAt    time.Time `json:"create_at"`
-	UpdateAt    time.Time `json:"update_at"`
-}
-
-func GetRandomMenu(w http.ResponseWriter, r *http.Request) {
-	row := db.Conn.QueryRow("SELECT * FROM menu ORDER BY RANDOM() LIMIT 1")
-	if err := row.Err(); err != nil {
-		log.Println(err)
-		return
-	}
-	var menu MenuModel
-	var tag, ingre, image, create, update string
-
-	err := row.Scan(
-		&menu.Id, &menu.Title, &menu.Type, &tag, &ingre, &menu.CookMethod,
-		&image, &menu.Budget, &create, &update,
-	)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	menu.Tag = strings.Split(tag, ",")
-
-	menu.Ingredients = strings.Split(ingre, ",")
-	menu.ImageList = strings.Split(image, ",")
-
-	menu.CreateAt, _ = time.Parse("2006-01-02 15:04:05", create)
-	menu.UpdateAt, _ = time.Parse("2006-01-02 15:04:05", update)
-
-	JSON(w, menu)
+	ModifyAt    time.Time `json:"modify_at"`
 }
 
 func GetMenuList(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +37,7 @@ func GetMenuList(w http.ResponseWriter, r *http.Request) {
 	if filter != "" {
 		b.WriteString(fmt.Sprintf("WHERE type='%s' ", filter))
 	}
-	b.WriteString("LIMIT ? OFFSET ?")
+	b.WriteString("ORDER BY RANDOM() LIMIT ? OFFSET ?")
 
 	rows, err := db.Conn.Query(b.String(), limit, limit*page)
 	if err != nil {
@@ -81,40 +52,24 @@ func GetMenuList(w http.ResponseWriter, r *http.Request) {
 
 	for rows.Next() {
 		var menu MenuModel
-		var tag, ingre, image, create, update string
+		var tag, ingre, modify string
 
 		err := rows.Scan(
 			&menu.Id, &menu.Title, &menu.Type, &tag, &ingre, &menu.CookMethod,
-			&image, &menu.Budget, &create, &update,
+			&menu.ImagePath, &menu.Budget, &modify,
 		)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 		menu.Tag = strings.Split(tag, ",")
-
 		menu.Ingredients = strings.Split(ingre, ",")
-		menu.ImageList = strings.Split(image, ",")
 
-		menu.CreateAt, _ = time.Parse("2006-01-02 15:04:05", create)
-		menu.UpdateAt, _ = time.Parse("2006-01-02 15:04:05", update)
+		menu.ModifyAt, _ = time.Parse("2006-01-02 15:04:05", modify)
 
 		menuList = append(menuList, menu)
 	}
 	JSON(w, menuList)
-}
-
-func commaSlice(s []string) string {
-	b := strings.Builder{}
-
-	for i := 0; i < len(s); i++ {
-		b.WriteString(s[i])
-
-		if i != len(s)-1 {
-			b.WriteByte(',')
-		}
-	}
-	return b.String()
 }
 
 func PostMenu(w http.ResponseWriter, r *http.Request) {
@@ -124,35 +79,26 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 	ingredients := r.FormValue("ingredients") // 食材
 	cookMethod := r.FormValue("cook_method")  // 烹饪方法
 	budget := r.FormValue("budget")
-
 	files := r.MultipartForm.File["image"]
-	image := []string{}
 
-	for _, v := range files {
-		image = append(image, NewResource(menu, v))
+	id, _ := gonanoid.New()
+
+	path, err := NewResource(menu, id, files[0])
+	if err != nil {
+		log.Println(err)
+		return
 	}
-	imageList := strings.Builder{}
-
-	for i := 0; i < len(image); i++ {
-		imageList.WriteString(image[i])
-
-		if i != len(image)-1 {
-			imageList.WriteByte(',')
-		}
-	}
-	nano, _ := gonanoid.New()
-
-	_, err := db.Conn.Exec(
+	_, err = db.Conn.Exec(
 		`INSERT INTO menu(
-			_id, title, type, tag, ingredients, cook_method, image_list, budget)
+			_id, title, type, tag, ingredients, cook_method, image_path, budget)
 		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		nano,
+		id,
 		title,
 		tp,
 		tag,
 		ingredients,
 		cookMethod,
-		imageList.String(),
+		path,
 		budget,
 	)
 	if err != nil {
@@ -164,81 +110,19 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 
 func DeleteMenu(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
+	row := db.Conn.QueryRow("SELECT image_path FROM menu WHERE _id=?", id)
 
-	var imageList string
-	_ = row.Scan(&imageList)
+	var path string
+	_ = row.Scan(&path)
 
-	for _, v := range strings.Split(imageList, ",") {
-		DeleteResource(v)
+	if err := DeleteResource(path); err != nil {
+		log.Println(err)
+		return
 	}
 	_, err := db.Conn.Exec("DELETE FROM menu WHERE _id=?", id)
 	if err != nil {
 		log.Println(err)
 		return
-	}
-}
-
-func pushMenuImage(r *http.Request) {
-	id := r.PathValue("id")
-	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
-	var imageList string
-
-	_ = row.Scan(&imageList)
-	_, header, err := r.FormFile("image")
-
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	path := NewResource(menu, header)
-	var slice []string
-
-	if len(imageList) != 0 {
-		slice = strings.Split(imageList, ",")
-	}
-	slice = append(slice, path)
-
-	_, err = db.Conn.Exec(
-		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-}
-
-func popMenuImage(r *http.Request) {
-	id := r.PathValue("id")
-	row := db.Conn.QueryRow("SELECT image_list FROM menu WHERE _id=?", id)
-
-	if err := row.Err(); err != nil {
-		log.Println(err)
-		return
-	}
-	var imageList string
-	_ = row.Scan(&imageList)
-
-	slice := strings.Split(imageList, ",")
-	back := len(slice) - 1
-
-	DeleteResource(slice[back])
-	slice = slice[:back]
-
-	_, err := db.Conn.Exec(
-		"UPDATE menu SET image_list=? WHERE _id=?", commaSlice(slice), id)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-}
-
-// 对示例图片的操作
-func MenuImage(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		pushMenuImage(r) // 添加一张
-	}
-	if r.Method == "DELETE" {
-		popMenuImage(r) // 删一张
 	}
 }
 

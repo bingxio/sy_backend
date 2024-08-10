@@ -32,22 +32,21 @@ func main() {
 	mux := http.NewServeMux()
 
 	fs := http.FileServer(http.Dir("resource/menu"))
-	mux.Handle("/resource/menu/", http.StripPrefix("/resource/menu", fs))
-	// mux.HandleFunc(
-	// 	"/resource/menu/",
-	// 	middleware.Cors(func(w http.ResponseWriter, r *http.Request) {
-	// 		http.StripPrefix("/resource/menu", fs).ServeHTTP(w, r)
-	// 	}),
-	// )
+	//mux.Handle("/resource/menu/", http.StripPrefix("/resource/menu", fs))
+	mux.HandleFunc(
+		"/resource/menu/",
+		middleware.Cors(func(w http.ResponseWriter, r *http.Request) {
+			http.StripPrefix("/resource/menu", fs).ServeHTTP(w, r)
+		}),
+	)
 
 	// 获取菜列表
 	mux.HandleFunc("/menu/list", middleware.Cors(api.GetMenuList))
-	mux.HandleFunc("/menu/random", api.GetRandomMenu) // 随机一个菜（类型筛选）
 
 	mux.HandleFunc("/menu", api.PostMenu)        // 增菜
 	mux.HandleFunc("/menu/{id}", api.DeleteMenu) // 删菜
 
-	mux.HandleFunc("/menu/image/{id}", api.MenuImage)   // 示例图片的增删
+	// mux.HandleFunc("/menu/image/{id}", api.MenuImage)   // 示例图片的增删
 	mux.HandleFunc("/menu/{id}/{field}", api.PatchMenu) // 更新菜字段
 
 	srv := &http.Server{

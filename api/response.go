@@ -10,13 +10,6 @@ func ServerError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 }
 
-// func BadRequest(w http.ResponseWriter) {
-// 	w.WriteHeader(http.StatusBadRequest)
-// }
-
-//	func NotFound(w http.ResponseWriter) {
-//		w.WriteHeader(http.StatusNotFound)
-//	}
 func JSON(w http.ResponseWriter, model any) {
 	w.Header().Set("Content-Type", "application/json;charset=utf-8")
 

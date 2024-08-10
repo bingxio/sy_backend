@@ -6,14 +6,20 @@ import (
 	"log"
 	"mime/multipart"
 	"os"
+	"path/filepath"
 	"sy_backend/config"
+	"sy_backend/util"
 )
 
 const (
 	menu = "/menu"
 )
 
-func NewResource(folder string, file *multipart.FileHeader) string {
+func NewResource(
+	folder,
+	nanoId string,
+	file *multipart.FileHeader,
+) (string, error) {
 	src, _ := file.Open()
 	defer src.Close()
 
@@ -26,14 +32,23 @@ func NewResource(folder string, file *multipart.FileHeader) string {
 	if err != nil {
 		log.Println(err)
 	}
-	path = fmt.Sprintf("%s/%s", path, file.Filename)
+	path = fmt.Sprintf(
+		"%s/%s%s",
+		path,
+		nanoId,
+		filepath.Ext(file.Filename),
+	)
 	dst, _ := os.Create(path)
 	defer dst.Close()
 
 	_, _ = io.Copy(dst, src)
-	return path
+
+	if err := util.CompressImage(path); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
-func DeleteResource(path string) {
-	_ = os.Remove(path)
+func DeleteResource(path string) error {
+	return os.Remove(path)
 }

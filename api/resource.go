@@ -44,6 +44,7 @@ func NewResource(
 	_, _ = io.Copy(dst, src)
 
 	if err := util.CompressImage(path); err != nil {
+		DeleteResource(path)
 		return "", err
 	}
 	return path, nil

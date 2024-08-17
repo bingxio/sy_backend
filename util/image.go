@@ -1,7 +1,7 @@
 package util
 
 import (
-	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -34,7 +34,7 @@ func CompressImage(imagePath string) error {
 		img, err = png.Decode(file)
 		format = "png"
 	default:
-		return errors.New("expected image ContentType")
+		return fmt.Errorf("expected image ContentType: %s", t)
 	}
 	if err != nil {
 		return err

@@ -36,13 +36,10 @@ func makeTable() {
 	"_id"	TEXT NOT NULL UNIQUE,
 	"title"	TEXT,
 	"type"	TEXT,
-	"tag"   TEXT,
 	"ingredients"	TEXT,
 	"cook_method"	TEXT,
-	"image_list"	TEXT,
-	"budget"	REAL,
-	"create_at"	TEXT DEFAULT (datetime('now', 'localtime')),
-	"update_at"	TEXT DEFAULT (datetime('now', 'localtime')),
+	"image_path"	TEXT,
+	"modify_at"	TEXT DEFAULT (datetime('now', 'localtime')),
 	PRIMARY KEY("_id")
 );`)
 		if err != nil {

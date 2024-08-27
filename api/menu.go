@@ -75,7 +75,7 @@ func PostMenu(w http.ResponseWriter, r *http.Request) {
 	cookMethod := r.FormValue("cook_method")  // 烹饪方法
 	files := r.MultipartForm.File["image"]
 
-	id, _ := gonanoid.New()
+	id, _ := gonanoid.Generate("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8)
 
 	path, err := NewResource(menu, id, files[0])
 	if err != nil {
